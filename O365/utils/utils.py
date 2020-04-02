@@ -1,5 +1,6 @@
 import datetime as dt
 import logging
+import time
 from collections import OrderedDict
 from enum import Enum
 
@@ -459,6 +460,58 @@ class ApiComponent:
 
     q = new_query  # alias for new query
 
+class TeamAsyncOperation(ApiComponent):
+    """ A utility class allowing for Asynchronous request updates """
+    
+    def __init__(self, *, parent=None, **kwargs):
+        """ An async object
+
+        :param parent: parent object
+        :type parent: Account
+        :param Connection con: connection to use if no parent specified
+        :param Protocol protocol: protocol to use if no parent specified
+         (kwargs)
+        :param str main_resource: use this resource instead of parent resource
+         (kwargs)
+        """
+        if parent and con:
+            raise ValueError('Need a parent or a connection but not both')
+        self.con = parent.con if parent else con
+
+        # Choose the main_resource passed in kwargs over the host_name
+        main_resource = kwargs.pop('main_resource',
+                                   '')  # defaults to blank resource
+        super().__init__(
+            protocol=parent.protocol if parent else kwargs.get('protocol'),
+            main_resource=main_resource)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return 'Microsoft Teams'
+    
+    def get_request(self, location:None):
+        """ gets the status of an async job till it returns with succeeded
+        """
+        data = {'status': None}
+        
+        if not location:
+            raise RuntimeError('Provide the location')
+
+        url = self.build_url(location)
+        while data['status'] != "succeeded":
+            
+            if data['status'] != None:
+                time.sleep(30)
+
+            response = self.con.get(url)
+            data = response.json()
+
+            if data['error'] != None:
+                raise RuntimeError(data['error'])
+        
+        return data
 
 class Pagination(ApiComponent):
     """ Utility class that allows batching requests to the server """
